@@ -1,0 +1,19 @@
+Welcome to the lexical decision task.
+
+You are about to see a series of characters. 
+
+If the characters make up a word, 
+
+press the RIGHT arrow key.
+
+If the characters do not make up a word, 
+
+press the LEFT arrow key.
+
+Press SPACE to begin.
+
+
+
+Try to give a correct response as fast as possible.
+
+Ask the experimenter if you have any questions.

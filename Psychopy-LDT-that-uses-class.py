@@ -10,22 +10,28 @@ for cond in ls_cond:
 
 print(conditions)
 
+
 # Instructions
 instruct = open("instructions.txt","r").read().split("\n\n\n")
 
 # Define class object that runs the experiment
 expt = run_experiment(conditions)
 
+# Ask user id
+subj = expt.ask_user_ID()
+
 # Call the function that shows instructions
 expt.show_instructions(instruct)
 
 # Run the trials
-results = expt.run_trials(['right','left'])
-expt.terminate()
-
-result_file = open("New_LDT_results.csv","a")
+results = expt.run_trials(subj,['right','left'])
+print(results)
+result_file = open("LDT_results_file.csv","a")
 result_file.write(results)
 result_file.close()
+
+expt.terminate()
+
 
 
 

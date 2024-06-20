@@ -1,0 +1,8 @@
+1. Cover basics R
+2. use example data for dataframes and ggplot
+	- Word frequency, word length, subject and RT data
+	- Census data Howell: height, weight, age
+	- COVID-19 data
+	- Population estimates - working population by country data 
+	- Management: 
+	

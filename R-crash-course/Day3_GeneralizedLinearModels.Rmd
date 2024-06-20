@@ -1,0 +1,129 @@
+---
+title: "Day 3: Generalized Linear Models"
+author: "Himanshu Yadav"
+date: "16.12.2020"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(fig.width=6, fig.height=4)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(stats)
+library(TruncatedNormal)
+```
+
+\large
+
+\section{Probability distributions}
+
+\section{Logistic regression model}
+
+\textbf{Example. Modeling the chances of getting A+ grade in the exam}
+
+Let me introduce you a student whose name is $K$.
+
+$K$ is very sincere in studies and tries everything to get A+ grade in the exams. She gives around 5 exams in a month and has been studying for last 200 months. $K$ is disappointed today, because she got B grade in a recent exam.
+
+$K$ has decided to analyze his past experiences what has helped her to get A+ in the past.
+
+$K$ wants to model the distribution of getting grade A+ or less in the exams as a function of number of daily study hours, number of daily hours spent on twitter and number of books read in each month.
+
+Here is the history of her grades.
+
+```{r echo=FALSE}
+#no. of hours studied in a day
+studyHours <- rbinom(200,24,0.2)
+#no. of books read
+books <- rbinom(200,4,0.2)
+#amount of time (in hours) spent on twitter per day
+twitter <- rtnorm(200,3,0.5,lb=0,ub=24)
+logit_theta <- 2+0.08*studyHours+0.002*books-0.5*twitter
+month_id <- 1:200
+grades <- c()
+for(i in 1:200){
+  theta <- plogis(logit_theta[i])
+  grades <- c(grades,rbinom(6,1,theta))
+}
+
+K.exams <- data.frame(month_id=rep(1:200,each=6),
+                      year=c(rep(2005:2019,each=72),rep(2020,120)),
+                      studyHours=rep(studyHours,each=6),
+                      books=rep(books,each=6),
+                      twitter=rep(twitter,each=6),
+                      grades=grades)
+write.csv(K.exams,"K-exams-grades.csv")
+```
+
+
+```{r}
+head(K.exams)
+#grades=1 means K got A+ grade, grades=0 means K could not get A+
+
+#I know true parameters, alpha=2, beta1=0.08,beta2=0.002,beta3= -0.5
+
+#Let's see a simple linear regression can recover the parameters
+m1 <- lm(grades~studyHours+books+twitter,data=K.exams)
+m1
+# The model generates incorrect estimates
+
+# Because 'grades' are not normally distributed
+
+# Let's check the model predictions
+hist(predict(m1))
+# Model generates invalid predictions
+
+# Fit a logistic regression model instead
+m2 <- glm(grades~studyHours+books+twitter,data=K.exams,family = binomial(link="logit"))
+m2
+summary(m2)
+# The model generates correct estimates
+
+#Predictions
+plot(K.exams$twitter, plogis(predict(m2)))
+plot(K.exams$studyHours, plogis(predict(m2)))
+plot(K.exams$books, plogis(predict(m2)))
+```
+
+
+\section{Mixed-effect logistic regression}
+
+Let $grades_{i,j}$ indicates whether $K$ got A+ in a exam that happened in $ith$ month that belongs to $jth$ year, 
+
+$logit(grades_{i,j}) = (\alpha + u_j) + \beta_1 S_i + \beta_2 B_i +\beta_3 T_i +\epsilon_{i,j}$
+
+$u_j \sim Normal(0,\sigma^2_u)$
+
+```{r}
+K.exams
+# Random intercept adjustment
+library(lme4)
+m3 <- glmer(grades~studyHours+books+twitter+(1|year),data=K.exams,family = binomial(link="logit"))
+summary(m3)
+
+# Random intercept and slope adjustment
+m3 <- glmer(grades~studyHours+books+twitter+(1+twitter|year),data=K.exams,family = binomial(link="logit"))
+summary(m3)
+```
+
+
+\section{Poisson regression model}
+
+```{r}
+covid <- read.table("COVID19data.csv",sep=",",header=T)
+m4 <- glm(cases ~ month,data=subset(covid,cases>0),family=poisson())
+summary(m4)
+
+m5 <- glmer(cases ~ month+(month|country),data=subset(covid,cases>0),family=poisson())
+summary(m5)
+```
+
+
+\section{Mixed-effect poisson regression}
+
+\section{Mixed-effect lognormal model}
+

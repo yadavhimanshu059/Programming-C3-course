@@ -1,0 +1,551 @@
+---
+title: "Day 2: Linear models and linear mixed models"
+author: "Himanshu Yadav"
+date: "15.12.2020"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(fig.width=3, fig.height=2.5)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(stats)
+```
+
+\large
+
+\section{Linear model in practice}
+
+Consider a linear equation,
+
+$y = mx+c$
+
+where $m$ is the slope of the line, and $c$ is the intercept.
+
+```{r echo=FALSE}
+x <- -1:4
+y <- 3+1*(x)
+ggplot(data.frame(x,y),aes(x=x,y=y))+
+  geom_line(size=1.1,color="blue")+
+  theme_bw()+
+  geom_vline(xintercept = 0)
+```
+
+This line has intercept 3 and slope 1. You can write equation for y as:
+
+$y = 3 + x$
+
+Consider a point on the line corresponding to x=1.5, what will be y?
+
+```{r echo=FALSE}
+x <- -1:4
+y <- 3+1*(x)
+ggplot(data.frame(x,y),aes(x=x,y=y))+
+  geom_line(size=1.2,color="blue")+
+  theme_bw()+
+  geom_vline(xintercept = 0)+
+  geom_point(size=2,colour="red",aes(x=1.5,y=4.5))
+```
+
+$y = 3 + 1.5 = 4.5$
+
+What if there is a point slightly above or below the line?
+
+```{r echo=FALSE}
+x <- -1:4
+y <- 3+1*(x)
+ggplot(data.frame(x,y),aes(x=x,y=y))+
+  geom_line(size=1.2,color="blue")+
+  theme_bw()+
+  geom_vline(xintercept = 0)+
+  geom_point(size=1.6,colour="red",aes(x=1.5,y=4.5))+
+  geom_point(size=2,colour="red",aes(x=1.5,y=4.8))
+```
+
+Say the point is (x,y')
+
+I can write,
+
+$y' = y + \epsilon$
+
+$y' = mx + c + \epsilon$
+
+This is basic idea behind \textit{linear regression}: you can model the relationship between a dependent/outcome variable $y$ and an independent/predictor variable $x$ using an error variable $\epsilon$ such that every observation of $y$ is a linear function of $x$ plus error variable $\epsilon$.
+
+The linear mode to predict $i^{th}$ observation of $y$ using $i^{th}$ observation of $x$:
+
+$y_i = \alpha + \beta x_i + \epsilon_i$
+
+If you have multiple predictors, say u, v, w and x
+
+$y_i = \alpha + \beta_1 w_{i} + \beta_2 v_i + \beta_3 w_i + \beta_4 x_i + \epsilon_i$
+
+Your goal is to estimate values of $\alpha$, $\beta_1$,.. such that the error term $\epsilon$ is minimized.
+
+Note: For computational convenience, errors $\epsilon_1, \epsilon_2,...,\epsilon_n$ are assumed to be normally distributed, i.e., $\epsilon_i \sim Normal(0,\delta)$. While, in practice, most of linear modeling packages in R, python fit models under normality assumption, this assumption is often ignored during the data analysis and it may cause false interpretations. Other assumptions include independence of errors, Homoscedasticity and linear relationship.
+
+\subsection{Example. Linear model of relationship between weight and age}
+
+Suppose you are given data of weight and age for $n$ people.
+
+You assume that body weight increases linearly with increase in age. You can write your model like this.
+
+$Weight_i = \alpha + \beta Age_i + \epsilon_i$
+
+where $Weight_i$ and $Age_i$ are weight and age of $i^{th}$ person respectively. $\alpha$ and $\beta$ are intercept and slope parameters.
+
+You use some algorithm to estimate the values of $\alpha$ and $\beta$ such that the errors are minimized. For example, we will use function $lm()$ in R to do this.
+
+Let $\hat{\alpha}$ and $\hat{\beta}$ be the estimated coefficients. Now you can predict $weight$ of a person given his/her $age$ and estimated coefficients.
+
+$Weight_{pred} = \hat{\alpha}+\hat{\beta}Age$
+
+You can generate model predictions for each observation of $age$ in your dataset,
+
+$Weight_{pred,i} = \hat{\alpha}+\hat{\beta}Age_i$
+
+where $Weight_{pred,i}$ is predicted weight of $i^{th}$ person (predicted by a fitted linear model).
+
+The difference between observed value and model predicted value of outcome variable is called residual.
+
+$residual_i = Weight_i - Weight_{pred,i}$
+
+Residuals are estimates of error, $\epsilon$.
+
+If you have assumed errors are normally distributed, then $residual_i \sim Normal(0,\delta)$. 
+
+```{r}
+data <- read.table("Howell.csv", header = T,sep=",")
+data <- data[,-1]
+data$Gender <- ifelse(data$male==1,"Male","Female")
+head(data)
+# Linear model to predict weight from age
+# Subsetting for age <= 25
+data.young <- subset(data,age<=25)
+# For people <=25 years of age, 
+# I assume weight increases linearly with age
+model1 <- lm(weight~age,data=data.young)
+model1
+summary(model1)
+```
+
+- Residuals show distribution of estimate of errors, i.e., distribution of difference between observed weight and predicted weight.
+- Coefficients summarize estimates for each parameter of the model.
+- The estimate corresponding to $age$ is estimate of slope term associated with $age$, you can also call it \textit{main effect of age on weight}.
+- The slope estimate tell us with what extent weight increases with increase in age
+- I will explain Std. Error, t value and Pr value soon.
+- In short, if Pr value (p-value) for a parameter estimate is less than 0.05, we infer that the true (population) value of the parameter is significantly different from zero.
+
+```{r}
+# Let us generate predictions from this model
+head(predict(model1))
+data.young$predicted_weight <- predict(model1)
+head(data.young)
+# Let us plot the predicted weight
+ggplot(data=data.young,aes(x=age,y=predicted_weight))+
+  geom_line(size=1.2,color="blue")+
+  theme_bw()
+
+ggplot(data=data.young,aes(x=age,y=weight))+
+  geom_smooth(method="lm",formula=y~x,size=1.2,color="blue",se=F)+
+  theme_bw()
+
+# You can manually generate model predictions
+summary(model1)$coefficients
+ages <- 1:70
+newdata <- data.frame(ages)
+newdata$predicted_weight <- 5.22+1.73*ages
+head(newdata)
+
+ggplot(data=newdata,aes(x=ages,y=predicted_weight))+
+  geom_line(size=1.2,color="blue")+
+  theme_bw()
+
+ggplot(data=newdata,aes(x=ages,y=predicted_weight))+
+  geom_line(size=1.2,color="blue")+
+  theme_bw()+
+  geom_point(data=data,aes(x=age,y=weight))
+
+
+#Check the distribution of residuals
+data.young$residuals <- data.young$weight - data.young$predicted_weight
+hist(data.young$residuals)
+```
+
+
+\subsection{Example. Linear model of relationship between weight, age and height}
+
+Now suppose someone points out that the real reason behind increase in weight is body height. It is possible that people of same age have different weights due to different heights. So, \textbf{height would have an effect on weight over and above the effect of age}. If you want to model this situation, you can use both age and height as independent predictors in the linear model.
+
+$Weight_i = \alpha + \beta_1 Age_i + \beta_2 Height_i + \epsilon_i$
+
+After fitting this model, you will obtain the etimates for intercept and slopes i.e., $\hat{\alpha}$, $\hat{\beta_1}$ and $\hat{\beta_2}$.
+
+- $\hat{\alpha}$ is weight of a person who is zero years old and have zero height.
+- $\hat{\beta_1}$: for a person has zero height, by what extent his/her weight increases with increase in age
+- $\hat{\beta_2}$: for a person who is zero year old, by what extent his/her weight increases with increase in height
+
+\textbf{Center} the predictors for easier interpretation.
+
+$cAge_i = Age_i - mean(Age)$
+
+$cHeight_i = Height_i - mean(Height)$
+
+$Weight_i = \alpha + \beta_1 cAge_i + \beta_2 cHeight_i + \epsilon_i$
+
+- $\hat{\alpha}$ is weight of a person who is average old and have average height.
+- $\hat{\beta_1}$: for a person has average height, by what extent his/her weight increases with increase in age
+- $\hat{\beta_2}$: for a person who is average old, by what extent his/her weight increases with increase in height
+
+```{r}
+model2 <- lm(weight~age+height,data=data.young)
+model2
+summary(model2)
+# Center the predictors
+data.young$c_age <- scale(data.young$age)
+data.young$c_height <- scale(data.young$height)
+head(data.young)
+model2 <- lm(weight~c_age+c_height,data=data.young)
+model2
+summary(model2)
+```
+
+\subsection{Example. Weight increases faster with age for males compared to females}
+
+We assume that rate of increases in weight w.r.t. age is faster in males than females. Slope of line predicting weight from age will be larger for male population than females.
+
+```{r echo=FALSE}
+ggplot(data=data.young,aes(x=age,y=weight,colour=Gender))+
+  geom_smooth(method="lm",formula=y~x,size=1.2,se=F)+
+  theme_bw()
+```
+
+
+$Weight_{i} = \alpha + \beta'_{1} Age_i + \beta_{2} Gender_i + \epsilon_i$
+
+$\beta'_1 = \beta_1 + \beta_3 Gender_i$
+
+$Weight_{i} = \alpha + \beta_{1} Age_i + \beta_{2} Gender_i + \beta_3 Age_i * Gender_i + \epsilon_i$
+
+But the variable $Gender$ is a vector of string/factor. You will have to recode it as a numeric variable, otherwise R automatically converts it.
+
+Interpretation:
+
+Assuming that you have centered the continuous variable $age$, and you have coded $Gender$ such that male is coded 0 and female is coded 1. 
+- $\alpha$ is the weight of an average old male
+- $\beta_1$ is the effect of age on weight for male populations, to what extent weight of a male increases with age
+- $\beta_2$ is the effect of Gender on weight for average age population, i.e., for people with average age, to what extent females would have higher weight than males?
+- $\beta_3$ is called interaction effect. To what extent the effect of age on weight is larger for female population than male population? Slope for female population minus slope for male population.
+
+We expect postive estimates for $alpha$ and $\beta_1$ and negative estimates for $\beta_2$ and $\beta_3$.
+
+```{r}
+data.young$gender <- ifelse(data.young$Gender=="Male",0,1) 
+model3 <- lm(weight~c_age+gender+c_age*gender,data=data.young)
+model3
+summary(model3)
+```
+
+\subsection{Exercise 1}
+
+Load the data from a word recognition experiment: Participants had to recognize a word as quickly as possible; dataset lists the observed reaction time, frequency and length for each word.
+
+1.1 We have a hypothesis that "the words which are more frequent in everyday use will be read faster". Fit a linear model to check this. Does the estimate support the prediction of the hypothesis?
+
+1.2 What is the relationship between reaction time and word length?
+
+1.3 Is there any interaction effect? What does the interaction imply?
+
+```{r}
+hindi <- read.table("Hindi-word-recognition-data.csv",sep=",",header=T)
+head(hindi)
+```
+
+
+
+\section{Linear mixed models}
+
+When data are drawn from a hierarchy of different populations!
+
+Consider COVID-19 dataset:
+
+```{r}
+covid <- read.table("COVID19data.csv",sep=",",header=T)
+covid <- subset(covid,year==2020)[,c(4,6,7,8,10)]
+head(covid)
+m1 <- lm(cases~month,data=covid)
+summary(m1)
+hist(covid$cases-predict(m1))
+#However, residuals are not normally distributed, we will review this problem in generalized linear models. Ignore it for now.
+
+ggplot(covid,aes(x=month,y=cases))+
+  geom_smooth(method="lm",size=1.1,se=F)+theme_bw()
+
+ggplot(covid,aes(x=month,y=cases))+
+  geom_smooth(method="lm",size=1.1,se=F)+theme_bw()+
+  facet_wrap(~continentExp)
+
+ggplot(subset(covid,country %in% c("India","Germany","Japan")),aes(x=month,y=cases))+
+  geom_smooth(method="lm",size=1.1,se=F)+theme_bw()+
+  facet_wrap(~country)
+```
+
+
+- the obsevations, i.e., number of cases per day, are not generated from the same (homogenous) population
+- The observations come from a hierarchical of different populations
+  + Number of cases per day comes from populations of different countries which come from a population of continents
+- The observations are not independently drawn from a distribution
+
+Let us build a linear model to predict number of cases from month number. We assume that number of cases increases from month 1 to month 12.
+
+$Cases_i ~ \alpha + \beta Month_i + \epsilon_i$
+
+Let us rewrite this model assuming that the observations come from different subpopulations i.e., different countries.
+
+Let $i$ be the index for observations, $j$ be the index for $countries$.
+
+The model to predict the number of cases on $i^{th}$ day for $j^{th}$ country, i.e., $Cases_{i,j}$:
+
+$Cases_{i,j} = \alpha_{j} + \beta_{j} Month_{i}$
+
+Where $\alpha_{j}$ and  $\beta_{j}$ are intercept and slope for $j^{th}$ country; $Month_{i}$ indicates to which month $i^{th}$ day belongs to.
+
+I assume that,
+
+$\alpha_{j} = \alpha + u_{j}$
+
+$u_{j}$ is random intercept adjustment for $j^{th}$ country.
+
+$\beta_{j} = \beta + w_{j}$
+
+$w_{j}$ is slope intercept adjustment for $j^{th}$ country.
+
+Further, I assume that $u_{j}$ and $w_j$ come from a bivariate normal distribution,
+
+$\begin{pmatrix} u_j \\ w_j\end{pmatrix} \sim N_2 \begin{pmatrix}\begin{pmatrix} 0 \\ 0\end{pmatrix} , \begin{pmatrix} \sigma^2_u & \rho \sigma_u\sigma_w \\ \rho \sigma_u\sigma_w & \sigma^2_w \end{pmatrix}\end{pmatrix}$
+
+This is called random effect structure. The estimates of parameters $\sigma_u$, $\sigma_w$, and correlation $\rho$ are called random effects.
+
+$\hat{\alpha}$ and $\hat{\beta}$ are called fixed effects.
+
+The linear mixed-effect models capture both fixed effects and random effects.
+
+```{r}
+library(lme4)
+m2 <- lmer(cases ~ month+(1+month|country),data=covid)
+summary(m2)
+```
+
+Model was:
+
+$Cases_{i,j} = (\alpha + u_j) + (\beta + w_j)Month_i + \epsilon_{i,j}$
+
+$\begin{pmatrix} u_j \\ w_j\end{pmatrix} \sim N_2 \begin{pmatrix}\begin{pmatrix} 0 \\ 0\end{pmatrix} , \begin{pmatrix} \sigma^2_u & \rho \sigma_u\sigma_w \\ \rho \sigma_u\sigma_w & \sigma^2_w \end{pmatrix}\end{pmatrix}$
+
+This model is called correlated varying intercept varying slope model.
+
+The parameter estimates are:
+
+Fixed effects:
+
+$\alpha = -661$
+
+$\beta = 255$
+
+
+Random effects:
+
+$\sigma_u = 2600$
+
+$\sigma_w = 1040$
+
+$\rho = -0.97$
+
+Visualize country-level random adjustments:
+
+```{r}
+library(lattice)
+dotplot(ranef(m2,condVar=TRUE))
+```
+
+
+Let us make a slight change in the model:
+
+$\log(Cases_{i,j}) = (\alpha + u_j) + (\beta + w_j)Month_i + \epsilon_{i,j}$
+
+$\begin{pmatrix} u_j \\ w_j\end{pmatrix} \sim N_2 \begin{pmatrix}\begin{pmatrix} 0 \\ 0\end{pmatrix} , \begin{pmatrix} \sigma^2_u & \rho \sigma_u\sigma_w \\ \rho \sigma_u\sigma_w & \sigma^2_w \end{pmatrix}\end{pmatrix}$
+
+```{r}
+m3 <- glmer(cases ~ month+(month|country),data=subset(covid,cases>0),family=poisson())
+summary(m3)
+```
+
+This is a generalized linear model.
+
+```{r}
+#m4 <- glmer(cases ~ month+(1|country)+(1|continentExp),data=subset(covid,cases>0))
+#summary(m4)
+```
+
+\section{Hypothesis testing}
+
+Frequentist perspective:
+
+There exists a true population with fixed population parameters. If you repeatedly draw samples from the population, you can estimate the true parameters.
+
+Consider the hypothesis that \textbf{average height of Indian people is greater than 5 feet}.
+
+We are not going to directly target this hypothesis, we will first state a resonable null hypothesis.
+
+Null hypothesis: \textbf{average height of Indian people is 5 feet} i.e., mu = 0
+
+Alternative hypothesis: \textbf{average height of Indian people larger than 5 feet} i.e., mu > 0
+
+The idea is to reject the null hypothesis. If we can prove that the null hypothesis is incorrect, we can say that there is evidence for the alternative hypothesis.
+
+How to reject/accept the null?
+
+Assume that null hypothesis is TRUE. The true average height for the population is 5 feet. Draw repeated samples from this population. Calculate mean of each sample. If less than 5\% of the samples have mean greater than observed sample mean, reject the null.
+
+$p-value = Pr(T\geq t|H)$
+
+Where, T is the test statistic (mean in our example) of the samples drawn from the population, $t$ is the mean of the observed sample.
+
+Intuitively, $p-value$ tells you the probability of generating data at least as extreme as the observed data.
+
+```{r}
+observed_sample <- rnorm(100,5.3,0.5)
+hist(observed_sample)
+#Null hypothesis
+mu_population <- 5
+#repeated sampling
+samples <- data.frame(matrix(ncol=2,nrow=1000))
+colnames(samples) <- c("sample_id","mean_height")
+for(i in 1:1000){
+  h <- rnorm(100,mu_population,5)
+  samples[i,] <- c(i,mean(h))
+}
+hist(samples$mean_height)
+sd(samples$mean_height)
+pvalue <- length(which(samples$mean_height>=mean(observed_sample)))/1000
+pvalue
+#We cannot reject the null hypothesis
+#What if null hypothesis is that avergae height is 4
+samples <- data.frame(matrix(ncol=2,nrow=1000))
+colnames(samples) <- c("sample_id","mean_height")
+for(i in 1:1000){
+  h <- rnorm(100,4,5)
+  samples[i,] <- c(i,mean(h))
+}
+hist(samples$mean_height)
+sd(samples$mean_height)
+pvalue <- length(which(samples$mean_height>=mean(observed_sample)))/1000
+pvalue
+# Reject the null
+```
+
+- the observed data is very unlikely to have occurred under the null hypothesis
+- In other words, a p-value of 0.003 means if you draw repeated height samples from Indian population, 99.7\% of the samples will have mean height larger than 5 feets.
+
+- Problem: I cannot repeatdly sample from the population, this is practically impossible. 
+  + Central limit theorem!
+  + Means of the samples drawn from a propulation are normally distributed.
+  
+- In practice, 
+  + First determine the distribution of test statistic of the samples drawn from null hypothesis
+    + Usually, it is a student-t distribution or normal distribution
+  + Determine the crtitical region for rejecting / accepting the null
+    + For example, critical region to reject the null is $t>1.8$ for t-distribution
+  + Calculate p-value: you can simply calculate the area under the curve in the region $T>t$ where distribution has value greater than observed test statistic
+    
+```{r}
+observed_sample <- rnorm(100,5.3,0.5)
+hist(observed_sample)
+#Null hypothesis
+mu_population <- 4
+x <- seq(2,8,length=1000)
+plot(x,dnorm(x,4,0.5))
+
+pvalue <- 1-pnorm(mean(observed_sample),mean=4,sd=0.5)
+pvalue
+# Reject the null
+```
+    
+```{r}
+summary(model3)
+```
+
+\section{Likelihood ratio test: model comparison}
+
+Which model has generated the observed data? 
+
+Quantify the likelihood that model1 has generated the observed data.
+
+Model 1: 
+
+$\log(Cases_{i,j}) = (\alpha + u_j) + (\beta + w_j)Month_i + \epsilon_{i,j}$
+
+$\begin{pmatrix} u_j \\ w_j\end{pmatrix} \sim N_2 \begin{pmatrix}\begin{pmatrix} 0 \\ 0\end{pmatrix} , \begin{pmatrix} \sigma^2_u & \rho \sigma_u\sigma_w \\ \rho \sigma_u\sigma_w & \sigma^2_w \end{pmatrix}\end{pmatrix}$
+
+Quantify the likelihood that model2 has generated the observed data.
+
+Model 2: 
+
+$\log(Cases_{i,j}) = (\alpha + u_j) + \beta Month_i + \epsilon_{i,j}$
+
+$u_j \sim N (0,\sigma^2_u)$
+
+Quantify the likelihood that model3 has generated the observed data.
+
+Model 3: 
+
+$\log(Cases_{i}) = \alpha + \beta Month_i + \epsilon_{i}$
+
+
+```{r}
+m_full <- glmer(cases ~ month+(month|country),
+                data=subset(covid,cases>0),
+                family=poisson())
+summary(m_full)
+m_contrained <- glmer(cases ~ month+(1|country),
+                      data=subset(covid,cases>0),
+                      family=poisson())
+summary(m_contrained)
+
+m_null <- glm(cases ~ month,
+                      data=subset(covid,cases>0),
+                      family=poisson())
+summary(m_null)
+
+anova(m_full,m_contrained,m_null)
+anova(m_full,m_contrained)
+```
+
+Next session: probability distributions, generalized linear models
+
+\subsection{Exercise 2}
+
+Fit a linear mixed model on the "fakedata" which has 50 groups and 100 observations for each group. Assume that group-level intercept come from a normal model with population-level intercept as the mean and group-level slopes are also normally distributed (but there is no correlation between the two). Find the estimates for each parameter.
+
+```{r}
+sigma1 <- 2
+sigma2 <- 0.4
+intercept <- 3
+slope <- 2
+ngroup <- 50
+u1 <- intercept + rnorm(ngroup,0,sigma1)
+u2 <- slope + rnorm(ngroup,0,sigma2)
+predictor <- rnorm(100,10,5)
+fakedata <- data.frame(matrix(ncol=3,nrow=0))
+colnames(fakedata) <- c("group","predictor","outcome")
+for(i in 1:50){
+  outcome <- u1[i]+u2[i]*predictor
+  fakedata <- rbind(fakedata,data.frame(group=rep(i,100),predictor,outcome))
+}
+head(fakedata)
+```
+
